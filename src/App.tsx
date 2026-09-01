@@ -27,6 +27,7 @@ export interface AppActions {
   deleteStaff: (id: string) => void;
   deleteAuditEntry: (id: string) => void;
   clearAuditLog: () => void;
+  resetDevice?: (machineId: string) => void;
   addAudit: (entry: Omit<AuditEntry, 'id' | 'timestamp' | 'actor' | 'actorRole'>) => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -393,46 +394,46 @@ export default function App() {
   );
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // Initial load and live polling with serverless backend
+  // Initial load and live polling with Keygen.sh backend
   useEffect(() => {
-    fetch('/api/state')
-      .then((res) => res.json())
-      .then((json) => {
-        if (json?.data?.licenses && Array.isArray(json.data.licenses)) {
-          setLicenses(json.data.licenses);
-        }
-        if (json?.data?.staff && Array.isArray(json.data.staff)) {
-          setStaff(json.data.staff);
-        }
-        if (json?.data?.auditLog && Array.isArray(json.data.auditLog)) {
-          setAuditLog(json.data.auditLog);
-        }
-      })
-      .catch(() => {});
-
-    // Poll every 4 seconds to catch HWID locks from desktop activations in real-time
-    const interval = setInterval(() => {
-      fetch('/api/state')
+    const syncRemoteState = () => {
+      fetch('/api/keygen')
         .then((res) => res.json())
         .then((json) => {
-          if (json?.data?.licenses && Array.isArray(json.data.licenses)) {
-            setLicenses(json.data.licenses);
+          if (json?.success && Array.isArray(json.licenses)) {
+            setLicenses(json.licenses);
           }
         })
         .catch(() => {});
-    }, 4000);
+
+      fetch('/api/state')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json?.data?.staff && Array.isArray(json.data.staff)) {
+            setStaff(json.data.staff);
+          }
+          if (json?.data?.auditLog && Array.isArray(json.data.auditLog)) {
+            setAuditLog((prev) => {
+              const existingIds = new Set(prev.map((e) => e.id));
+              const newEntries = json.data.auditLog.filter((e: any) => !existingIds.has(e.id));
+              return [...newEntries, ...prev];
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    syncRemoteState();
+
+    // Poll every 3 seconds to catch live machine bindings from desktop activations
+    const interval = setInterval(syncRemoteState, 3000);
 
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     localStorage.setItem('yv27-licenses', JSON.stringify(licenses));
-    fetch('/api/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ licenses, staff, auditLog }),
-    }).catch(() => {});
-  }, [licenses, staff, auditLog]);
+  }, [licenses]);
 
   useEffect(() => { localStorage.setItem('yv27-staff',   JSON.stringify(staff));    }, [staff]);
   useEffect(() => { localStorage.setItem('yv27-audit',   JSON.stringify(auditLog)); }, [auditLog]);
@@ -463,18 +464,68 @@ export default function App() {
     setLicenses((prev) => prev.map((l) => (l.id === id ? { ...l, ...changes } : l)));
   }, []);
 
-  const addLicense = useCallback((license: Omit<License, 'id'>) => {
-    setLicenses((prev) => [{ ...license, id: newId() }, ...prev]);
-  }, []);
+  // Create license directly on Keygen.sh
+  const addLicense = useCallback(async (licPayload: any) => {
+    try {
+      const res = await fetch('/api/keygen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', payload: licPayload }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('✓ License created on Keygen.sh cloud!', 'success');
+        // Refresh immediately
+        const refRes = await fetch('/api/keygen');
+        const refJson = await refRes.json();
+        if (refJson.success && Array.isArray(refJson.licenses)) {
+          setLicenses(refJson.licenses);
+        }
+      } else {
+        showToast(`Failed to create license on Keygen: ${JSON.stringify(json.error)}`, 'error');
+      }
+    } catch (e: any) {
+      showToast(`Error: ${e.message}`, 'error');
+    }
+  }, [showToast]);
 
-  // Owner & Admin can delete license keys
-  const deleteLicense = useCallback((id: string) => {
+  // Owner & Admin can delete license keys on Keygen.sh
+  const deleteLicense = useCallback(async (id: string) => {
     if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'admin')) {
       showToast('Permission denied: Only Owner & Admin can delete license keys.', 'error');
       return;
     }
     setLicenses((prev) => prev.filter((l) => l.id !== id));
+    try {
+      await fetch('/api/keygen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', payload: { licenseId: id } }),
+      });
+      showToast('✓ License deleted from Keygen.sh cloud', 'success');
+    } catch (e: any) {
+      showToast(`Delete failed: ${e.message}`, 'error');
+    }
   }, [currentUser, showToast]);
+
+  // Unlink machine HWID on Keygen.sh
+  const resetDevice = useCallback(async (machineId: string) => {
+    try {
+      await fetch('/api/keygen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_machine', payload: { machineId } }),
+      });
+      showToast('✓ Machine HWID unlinked on Keygen.sh', 'success');
+      const refRes = await fetch('/api/keygen');
+      const refJson = await refRes.json();
+      if (refJson.success && Array.isArray(refJson.licenses)) {
+        setLicenses(refJson.licenses);
+      }
+    } catch (e: any) {
+      showToast(`Unlink failed: ${e.message}`, 'error');
+    }
+  }, [showToast]);
 
   const updateStaff = useCallback((id: string, changes: Partial<StaffMember>) => {
     setStaff((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
@@ -576,6 +627,7 @@ export default function App() {
     deleteStaff,
     deleteAuditEntry,
     clearAuditLog,
+    resetDevice,
     addAudit,
     showToast,
   };

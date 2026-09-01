@@ -37,15 +37,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // If key is generated on client or valid format but not seeded, register it
   if (!license && (cleanKey.startsWith('YV27-') || cleanKey.startsWith('YOGA-'))) {
+    let daysToAdd = 365;
+    if (cleanKey.includes('-M01-')) daysToAdd = 30;
+    else if (cleanKey.includes('-M03-')) daysToAdd = 90;
+    else if (cleanKey.includes('-M06-')) daysToAdd = 180;
+    else if (cleanKey.includes('-Y01-')) daysToAdd = 365;
+    else if (cleanKey.includes('-Y02-')) daysToAdd = 730;
+    else if (cleanKey.includes('-LFT-')) daysToAdd = 36500;
+
     license = {
       id: `lic_${Date.now()}`,
       key: cleanKey,
       status: 'active',
-      plan: 'Professional',
+      plan: cleanKey.includes('-LFT-') ? 'Lifetime' : 'Professional',
       assignedTo: 'Active Customer',
       assignedEmail: 'customer@yogavision.app',
       createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: new Date(Date.now() + daysToAdd * 24 * 60 * 60 * 1000).toISOString(),
       createdBy: 'System Auto-Register',
       deviceId: cleanHwid,
       deviceName: deviceName || 'Windows PC',

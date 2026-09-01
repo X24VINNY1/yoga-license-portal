@@ -175,32 +175,21 @@ function GenerateModal({
       setError('Please fill in customer name and email.');
       return;
     }
-    const key = generateKey();
-    const days = DURATION_DAYS[duration] ?? 365;
     actions.addLicense({
-      key,
-      status: 'active',
+      name: name.trim(),
+      email: email.trim(),
       plan,
-      assignedTo: name.trim(),
-      assignedEmail: email.trim(),
-      createdAt: new Date().toISOString(),
-      expiresAt: addDaysFromNow(days),
-      createdBy: currentUser.name,
-      deviceId: null,
-      deviceName: null,
-      devicePlatform: null,
-      deviceAssociatedAt: null,
+      duration,
       notes: notes.trim(),
-    });
+    } as any);
     actions.addAudit({
       action: 'License Created',
       targetType: 'license',
-      target: key,
-      details: `Created ${plan} license for ${name.trim()} (${email.trim()})`,
+      target: name.trim(),
+      details: `Created ${plan} (${duration}) license on Keygen.sh for ${name.trim()} (${email.trim()})`,
       ipAddress: '198.51.100.1',
       severity: 'info',
     });
-    actions.showToast('License generated successfully');
     onClose();
   }
 
@@ -403,6 +392,19 @@ function ViewModal({
           )}
           {license.status !== 'revoked' && (
             <Btn variant="danger" onClick={() => setConfirmRevoke(true)}>Revoke</Btn>
+          )}
+          {license.machineId && (
+            <button
+              onClick={() => {
+                if (actions.resetDevice && license.machineId) {
+                  actions.resetDevice(license.machineId);
+                  onClose();
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[rgba(56,189,248,0.1)] text-[#38bdf8] border border-[rgba(56,189,248,0.25)] hover:bg-[rgba(56,189,248,0.18)] cursor-pointer"
+            >
+              Unlink Machine HWID
+            </button>
           )}
           <button
             onClick={() => setConfirmDelete(true)}

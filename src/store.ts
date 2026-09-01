@@ -15,6 +15,7 @@ export interface License {
   expiresAt: string;
   createdBy: string;
   deviceId: string | null;
+  machineId?: string | null;
   deviceName: string | null;
   devicePlatform: string | null;
   deviceAssociatedAt: string | null;
@@ -45,11 +46,20 @@ export interface AuditEntry {
   severity: AuditSeverity;
 }
 
-export function generateKey(): string {
+export function generateKey(duration: string = '1 Year'): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const seg = () =>
-    Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-  return `YV27-${seg()}-${seg()}-${seg()}`;
+  const seg = (len = 4) =>
+    Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+
+  let durTag = 'Y01';
+  if (duration === '1 Month') durTag = 'M01';
+  else if (duration === '3 Months') durTag = 'M03';
+  else if (duration === '6 Months') durTag = 'M06';
+  else if (duration === '1 Year') durTag = 'Y01';
+  else if (duration === '2 Years') durTag = 'Y02';
+  else if (duration === 'Lifetime') durTag = 'LFT';
+
+  return `YV27-${durTag}-${seg(4)}-${seg(4)}`;
 }
 
 export function newId(): string {
