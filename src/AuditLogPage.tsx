@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import type { AppData } from './App';
+import type { AppData, AppActions } from './App';
 import type { AuditSeverity, AuditTarget } from './store';
 import { fmtDateTime } from './store';
 
-interface Props { data: AppData; }
+interface Props { data: AppData; actions: AppActions; }
 
 const SEVERITY_MAP: Record<AuditSeverity, { dot: string; label: string; bg: string; border: string }> = {
   info:     { dot: '#3b82f6', label: '#60a5fa', bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.2)' },
@@ -19,13 +19,15 @@ const TARGET_MAP: Record<AuditTarget, string> = {
   system:  '#475569',
 };
 
-export default function AuditLogPage({ data }: Props) {
-  const { auditLog } = data;
+export default function AuditLogPage({ data, actions }: Props) {
+  const { auditLog, currentUser } = data;
+  const isOwner = currentUser.role === 'owner';
 
   const [search, setSearch]               = useState('');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterTarget, setFilterTarget]     = useState<string>('all');
   const [filterActor, setFilterActor]       = useState<string>('all');
+  const [confirmClear, setConfirmClear]     = useState(false);
 
   const actors = useMemo(
     () => Array.from(new Set(auditLog.map((e) => e.actor))).sort(),
@@ -52,7 +54,7 @@ export default function AuditLogPage({ data }: Props) {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Summary */}
+      {/* Summary Row */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[
           { label: 'Total Events', value: auditLog.length, dot: '#3b82f6' },
@@ -73,16 +75,13 @@ export default function AuditLogPage({ data }: Props) {
         ))}
       </div>
 
-      {/* Filters */}
+      {/* Filters Toolbar */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div
           className="flex items-center gap-2 flex-1 min-w-48 px-3.5 py-2 rounded-xl"
           style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.07)' }}
         >
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ color: '#334155', flexShrink: 0 }}>
-            <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.2" />
-            <path d="M9 9l2.5 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-          </svg>
+          <span className="text-xs">🔍</span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -103,23 +102,63 @@ export default function AuditLogPage({ data }: Props) {
             className="px-3 py-2 rounded-xl text-xs outline-none appearance-none"
             style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.07)', color: '#64748b' }}
           >
-            <option value="all">All {f.label}s</option>
-            {f.opts.filter((o) => o !== 'all').map((o) => (
-              <option key={o} value={o}>{o.charAt(0).toUpperCase() + o.slice(1)}</option>
+            {f.opts.map((o) => (
+              <option key={o} value={o} style={{ background: '#111827' }}>
+                {o.charAt(0).toUpperCase() + o.slice(1)}
+              </option>
             ))}
           </select>
         ))}
 
-        <select
-          value={filterActor}
-          onChange={(e) => setFilterActor(e.target.value)}
-          className="px-3 py-2 rounded-xl text-xs outline-none appearance-none"
-          style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.07)', color: '#64748b' }}
-        >
-          <option value="all">All Actors</option>
-          {actors.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
+        {actors.length > 1 && (
+          <select
+            value={filterActor}
+            onChange={(e) => setFilterActor(e.target.value)}
+            className="px-3 py-2 rounded-xl text-xs outline-none appearance-none"
+            style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.07)', color: '#64748b' }}
+          >
+            <option value="all">All Actors</option>
+            {actors.map((a) => (
+              <option key={a} value={a} style={{ background: '#111827' }}>{a}</option>
+            ))}
+          </select>
+        )}
+
+        {isOwner && (
+          <button
+            onClick={() => setConfirmClear(true)}
+            className="px-3 py-2 rounded-xl text-xs font-semibold bg-[rgba(239,68,68,0.12)] text-[#fca5a5] hover:bg-[rgba(239,68,68,0.2)] border border-[rgba(239,68,68,0.25)] transition-all cursor-pointer"
+          >
+            Clear Audit Log
+          </button>
+        )}
       </div>
+
+      {confirmClear && isOwner && (
+        <div className="mb-4 p-4 rounded-xl bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] flex items-center justify-between">
+          <p className="text-xs text-[#fca5a5]">
+            ⚠️ Are you sure you want to permanently clear all audit history? This action is exclusive to the Owner.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirmClear(false)}
+              className="px-3 py-1.5 rounded-lg text-xs bg-[rgba(255,255,255,0.05)] text-[#cbd5e1] cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                actions.clearAuditLog();
+                actions.showToast('Audit log cleared', 'info');
+                setConfirmClear(false);
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#dc2626] text-white cursor-pointer"
+            >
+              Confirm Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div
@@ -130,11 +169,11 @@ export default function AuditLogPage({ data }: Props) {
           <table className="w-full border-collapse">
             <thead>
               <tr style={{ background: '#0b1220' }}>
-                {['Timestamp', 'Severity', 'Action', 'Target', 'Actor', 'Details', 'IP Address'].map((col) => (
+                {['Timestamp', 'Severity', 'Action', 'Target', 'Actor', 'Details', 'IP Address', ...(isOwner ? [''] : [])].map((col) => (
                   <th
                     key={col}
                     className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider uppercase"
-                    style={{ color: '#334155', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}
+                    style={{ color: '#334155', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
                   >
                     {col}
                   </th>
@@ -142,66 +181,75 @@ export default function AuditLogPage({ data }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && (
+              {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: '#334155' }}>
-                    No events match your filters.
+                  <td colSpan={isOwner ? 8 : 7} className="px-4 py-8 text-center text-xs text-[#64748b]">
+                    No audit records found.
                   </td>
                 </tr>
-              )}
-              {filtered.map((entry) => {
-                const sv = SEVERITY_MAP[entry.severity];
-                const tc = TARGET_MAP[entry.targetType] ?? '#475569';
-                return (
-                  <tr
-                    key={entry.id}
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: '#0f1520' }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#131d2e'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#0f1520'; }}
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-xs font-mono" style={{ color: '#475569' }}>
-                        {fmtDateTime(entry.timestamp)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold"
-                        style={{ background: sv.bg, border: `1px solid ${sv.border}`, color: sv.label }}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: sv.dot }} />
-                        {entry.severity.charAt(0).toUpperCase() + entry.severity.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-medium" style={{ color: '#cbd5e1' }}>{entry.action}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div>
-                        <code className="text-xs" style={{ color: tc }}>{entry.target}</code>
-                        <div>
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 rounded"
-                            style={{ background: 'rgba(255,255,255,0.04)', color: '#334155' }}
+              ) : (
+                filtered.map((entry) => {
+                  const sc = SEVERITY_MAP[entry.severity];
+                  const tc = TARGET_MAP[entry.targetType] ?? '#94a3b8';
+                  return (
+                    <tr
+                      key={entry.id}
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: '#0f1520' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#131d2e'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#0f1520'; }}
+                    >
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-mono" style={{ color: '#475569' }}>
+                          {fmtDateTime(entry.timestamp)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium"
+                          style={{ background: sc.bg, color: sc.label, border: `1px solid ${sc.border}` }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc.dot }} />
+                          {entry.severity}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-medium" style={{ color: '#cbd5e1' }}>{entry.action}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-mono font-bold" style={{ color: tc }}>{entry.target}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs" style={{ color: '#64748b' }}>
+                          {entry.actor}{' '}
+                          <span style={{ color: '#334155', fontSize: '10px' }}>({entry.actorRole})</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 max-w-xs">
+                        <p className="text-xs truncate" style={{ color: '#64748b' }} title={entry.details}>
+                          {entry.details}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <code className="text-xs font-mono" style={{ color: '#334155' }}>{entry.ipAddress}</code>
+                      </td>
+                      {isOwner && (
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => {
+                              actions.deleteAuditEntry(entry.id);
+                              actions.showToast('Log entry removed', 'info');
+                            }}
+                            className="text-xs px-2 py-1 rounded bg-[rgba(239,68,68,0.1)] text-[#fca5a5] hover:bg-[rgba(239,68,68,0.25)] cursor-pointer"
+                            title="Delete log entry"
                           >
-                            {entry.targetType}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-xs font-medium" style={{ color: '#94a3b8' }}>{entry.actor}</p>
-                      <p className="text-[11px] capitalize" style={{ color: '#334155' }}>{entry.actorRole}</p>
-                    </td>
-                    <td className="px-4 py-3 max-w-xs">
-                      <span className="text-xs" style={{ color: '#475569' }}>{entry.details}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <code className="text-xs font-mono" style={{ color: '#334155' }}>{entry.ipAddress}</code>
-                    </td>
-                  </tr>
-                );
-              })}
+                            🗑
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -213,7 +261,7 @@ export default function AuditLogPage({ data }: Props) {
             Showing {filtered.length} of {auditLog.length} events
           </p>
           <button
-            className="text-xs px-3 py-1.5 rounded-lg transition-all"
+            className="text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer"
             style={{ background: 'rgba(255,255,255,0.04)', color: '#475569', border: '1px solid rgba(255,255,255,0.07)' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; }}

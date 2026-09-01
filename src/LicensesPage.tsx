@@ -239,12 +239,13 @@ function GenerateModal({
 // ── View / Manage HWID / Delete Modal ────────────────────────────────────────
 
 function ViewModal({
-  license, onClose, actions,
+  license, onClose, actions, currentUser,
 }: {
-  license: License; onClose: () => void; actions: AppActions;
+  license: License; onClose: () => void; actions: AppActions; currentUser: any;
 }) {
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const canDelete = currentUser.role === 'owner' || currentUser.role === 'admin';
 
   function doRevoke() {
     actions.updateLicense(license.id, { status: 'revoked' });
@@ -254,6 +255,10 @@ function ViewModal({
   }
 
   function doDelete() {
+    if (!canDelete) {
+      actions.showToast('Permission denied: Only Owner & Admin can delete license keys.', 'error');
+      return;
+    }
     actions.deleteLicense(license.id);
     actions.addAudit({ action: 'License Deleted', targetType: 'license', target: license.key, details: `Permanently deleted license for ${license.assignedTo}`, ipAddress: '198.51.100.1', severity: 'critical' });
     actions.showToast('License deleted permanently', 'info');
@@ -570,16 +575,18 @@ export default function LicensesPage({ data, actions }: Props) {
                       >
                         View
                       </button>
-                      <button
-                        onClick={() => {
-                          actions.deleteLicense(l.id);
-                          actions.showToast('License deleted', 'info');
-                        }}
-                        className="text-xs px-2 py-1 rounded-lg bg-[rgba(239,68,68,0.1)] text-[#fca5a5] hover:bg-[rgba(239,68,68,0.2)] cursor-pointer"
-                        title="Delete license"
-                      >
-                        🗑
-                      </button>
+                      {(currentUser.role === 'owner' || currentUser.role === 'admin') && (
+                        <button
+                          onClick={() => {
+                            actions.deleteLicense(l.id);
+                            actions.showToast('License deleted', 'info');
+                          }}
+                          className="text-xs px-2 py-1 rounded-lg bg-[rgba(239,68,68,0.1)] text-[#fca5a5] hover:bg-[rgba(239,68,68,0.2)] cursor-pointer"
+                          title="Delete license"
+                        >
+                          🗑
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -602,6 +609,7 @@ export default function LicensesPage({ data, actions }: Props) {
           license={viewLicense}
           onClose={() => setViewLicense(null)}
           actions={actions}
+          currentUser={currentUser}
         />
       )}
     </div>

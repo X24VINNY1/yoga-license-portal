@@ -1,26 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Props {
-  onLogin: (email: string, password: string) => boolean;
+  onLogin: (email: string, password: string, remember: boolean) => boolean;
 }
 
 export default function LoginPage({ onLogin }: Props) {
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [rememberMe, setRememberMe]   = useState(true);
+  const [error, setError]             = useState('');
+  const [loading, setLoading]         = useState(false);
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('yv27-saved-email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+    }
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (!email || !password) {
+    if (!email.trim() || !password.trim()) {
       setError('Please enter your email and password.');
       return;
     }
     setLoading(true);
-    const ok = onLogin(email, password);
+
+    if (rememberMe) {
+      localStorage.setItem('yv27-saved-email', email.trim());
+    } else {
+      localStorage.removeItem('yv27-saved-email');
+    }
+
+    const ok = onLogin(email.trim(), password.trim(), rememberMe);
     if (!ok) {
-      setError('Invalid credentials or account is disabled.');
+      setError('Invalid email or password.');
       setLoading(false);
     }
   }
@@ -75,10 +90,7 @@ export default function LoginPage({ onLogin }: Props) {
             boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
           }}
         >
-          <h2
-            className="text-base font-semibold mb-1"
-            style={{ color: '#e2e8f0' }}
-          >
+          <h2 className="text-base font-semibold mb-1" style={{ color: '#e2e8f0' }}>
             Administrator Sign In
           </h2>
           <p className="text-xs mb-6" style={{ color: '#475569' }}>
@@ -102,8 +114,6 @@ export default function LoginPage({ onLogin }: Props) {
                   border: '1px solid rgba(255,255,255,0.08)',
                   color: '#e2e8f0',
                 }}
-                onFocus={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(96,165,250,0.4)'; }}
-                onBlur={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
               />
             </div>
 
@@ -115,7 +125,7 @@ export default function LoginPage({ onLogin }: Props) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="••••••••••••"
                 autoComplete="current-password"
                 className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none transition-all duration-150"
                 style={{
@@ -123,25 +133,34 @@ export default function LoginPage({ onLogin }: Props) {
                   border: '1px solid rgba(255,255,255,0.08)',
                   color: '#e2e8f0',
                 }}
-                onFocus={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(96,165,250,0.4)'; }}
-                onBlur={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
               />
+            </div>
+
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="rounded bg-[#0d1828] border-gray-700 text-blue-600 focus:ring-0 cursor-pointer"
+                />
+                <span className="text-xs font-medium" style={{ color: '#94a3b8' }}>
+                  Remember my login
+                </span>
+              </label>
             </div>
 
             {error && (
               <div
-                className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs"
+                className="rounded-xl px-3.5 py-2.5 flex items-center gap-2 text-xs"
                 style={{
-                  background: 'rgba(239,68,68,0.08)',
-                  border: '1px solid rgba(239,68,68,0.2)',
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.25)',
                   color: '#fca5a5',
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.4" />
-                  <path d="M7 4v3.5M7 9.5v.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-                {error}
+                <span>⚠️ {error}</span>
               </div>
             )}
 
@@ -150,24 +169,21 @@ export default function LoginPage({ onLogin }: Props) {
               disabled={loading}
               className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 mt-1 cursor-pointer"
               style={{
-                background: loading ? 'rgba(37,99,248,0.5)' : '#0284c7',
-                color: loading ? 'rgba(255,255,255,0.5)' : '#fff',
-                cursor: loading ? 'not-allowed' : 'pointer',
+                background: '#2563eb',
+                color: '#ffffff',
+                opacity: loading ? 0.7 : 1,
               }}
-              onMouseEnter={(e) => {
-                if (!loading) (e.currentTarget as HTMLElement).style.background = '#0369a1';
-              }}
-              onMouseLeave={(e) => {
-                if (!loading) (e.currentTarget as HTMLElement).style.background = '#0284c7';
-              }}
+              onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLElement).style.background = '#1d4ed8'; }}
+              onMouseLeave={(e) => { if (!loading) (e.currentTarget as HTMLElement).style.background = '#2563eb'; }}
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? 'Authenticating…' : 'Sign In'}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-[10px] mt-6" style={{ color: '#334155' }}>
-          &copy; 2026 Yoga Vision. All rights reserved. Hardware-Locked License Verification System.
+        {/* Footer */}
+        <p className="text-center text-[11px] mt-6" style={{ color: '#334155' }}>
+          Protected by Hardware ID & Dual-Signature Security
         </p>
       </div>
     </div>

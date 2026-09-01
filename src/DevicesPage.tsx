@@ -222,9 +222,24 @@ export default function DevicesPage({ data, actions }: Props) {
                       <span className="text-xs" style={{ color: '#475569' }}>{l.devicePlatform ?? '—'}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <code className="text-[11px] font-mono" style={{ color: '#334155' }}>
-                        {l.deviceId ?? '—'}
-                      </code>
+                      {l.deviceId ? (
+                        <div className="flex items-center gap-1.5">
+                          <code className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-[rgba(56,189,248,0.1)] text-[#38bdf8] border border-[rgba(56,189,248,0.2)]">
+                            {l.deviceId}
+                          </code>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(l.deviceId!);
+                              actions.showToast('HWID copied', 'info');
+                            }}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.06)] text-[#93c5fd] hover:bg-[rgba(255,255,255,0.12)] cursor-pointer"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[#475569]">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs" style={{ color: '#475569' }}>

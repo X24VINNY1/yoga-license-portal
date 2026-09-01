@@ -1,25 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-// Shared database interface for Vercel Serverless
-interface License {
-  id: string;
-  key: string;
-  status: 'active' | 'expired' | 'suspended' | 'revoked';
-  plan: string;
-  assignedTo: string;
-  assignedEmail: string;
-  createdAt: string;
-  expiresAt: string;
-  createdBy: string;
-  deviceId: string | null;
-  deviceName: string | null;
-  devicePlatform: string | null;
-  deviceAssociatedAt: string | null;
-  notes: string;
-}
-
-// In-memory / Environment store cache
-let globalLicenses: License[] = [];
+import { db } from './db';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers
@@ -53,15 +33,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const cleanHwid = hwid.trim().toUpperCase();
 
   // Find license in database
-  // If database integration is set (e.g. Upstash, Supabase, KV), query it here
-  let license = globalLicenses.find((l) => l.key.toUpperCase() === cleanKey);
+  let license = db.licenses.find((l) => l.key.toUpperCase() === cleanKey);
 
-  // If no DB match, accept standard format or seed check
+  // If key is generated on client or valid format but not seeded, register it
+  if (!license && (cleanKey.startsWith('YV27-') || cleanKey.startsWith('YOGA-'))) {
+    license = {
+      id: `lic_${Date.now()}`,
+      key: cleanKey,
+      status: 'active',
+      plan: 'Professional',
+      assignedTo: 'Active Customer',
+      assignedEmail: 'customer@yogavision.app',
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      createdBy: 'System Auto-Register',
+      deviceId: cleanHwid,
+      deviceName: deviceName || 'Windows PC',
+      devicePlatform: devicePlatform || 'Windows',
+      deviceAssociatedAt: new Date().toISOString(),
+      notes: 'Activated from desktop client',
+    };
+    db.licenses.unshift(license);
+
+    db.auditLog.unshift({
+      id: `audit_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      actor: 'License Server',
+      actorRole: 'system' as any,
+      action: 'HWID Bound',
+      targetType: 'device',
+      target: cleanKey,
+      details: `Key ${cleanKey} registered and locked to HWID: ${cleanHwid}`,
+      ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || '127.0.0.1',
+      severity: 'info',
+    });
+
+    return res.status(200).json({
+      valid: true,
+      plan: license.plan,
+      assignedTo: license.assignedTo,
+      expiresAt: license.expiresAt,
+      deviceId: cleanHwid,
+      message: `License activated and locked to HWID: ${cleanHwid}`,
+    });
+  }
+
   if (!license) {
-    // Check fallback or sample active keys
     return res.status(404).json({
       valid: false,
-      message: 'Invalid license key. Please check your key or purchase a valid license.',
+      message: 'Invalid license key. Please check your key or generate one in your portal.',
     });
   }
 
@@ -69,14 +89,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (license.status === 'revoked') {
     return res.status(403).json({
       valid: false,
-      message: 'This license key has been revoked due to a terms of service violation.',
+      message: 'This license key has been revoked.',
     });
   }
 
   if (license.status === 'suspended') {
     return res.status(403).json({
       valid: false,
-      message: 'This license key is currently suspended. Please contact support.',
+      message: 'This license key is currently suspended.',
     });
   }
 
@@ -85,43 +105,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     license.status = 'expired';
     return res.status(403).json({
       valid: false,
-      message: `This license expired on ${new Date(license.expiresAt).toLocaleDateString()}. Please renew your subscription.`,
+      message: `This license expired on ${new Date(license.expiresAt).toLocaleDateString()}.`,
     });
   }
 
   // Check HWID binding
   if (!license.deviceId) {
-    // First time activation — bind to this machine's HWID
+    // First time activation — bind permanently to this machine's HWID
     license.deviceId = cleanHwid;
     license.deviceName = deviceName || 'Windows PC';
     license.devicePlatform = devicePlatform || 'Windows';
     license.deviceAssociatedAt = new Date().toISOString();
+
+    db.auditLog.unshift({
+      id: `audit_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      actor: 'License Server',
+      actorRole: 'system' as any,
+      action: 'HWID Bound',
+      targetType: 'device',
+      target: cleanKey,
+      details: `Key locked to HWID ${cleanHwid} (${deviceName || 'Windows PC'})`,
+      ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || '127.0.0.1',
+      severity: 'info',
+    });
 
     return res.status(200).json({
       valid: true,
       plan: license.plan,
       assignedTo: license.assignedTo,
       expiresAt: license.expiresAt,
-      bound: true,
-      message: `License successfully activated and locked to device: ${license.deviceName} (${cleanHwid})`,
+      deviceId: cleanHwid,
+      message: `License successfully locked to HWID: ${cleanHwid}`,
     });
   }
 
-  // Existing HWID binding check
+  // If already bound to HWID, verify match
   if (license.deviceId.toUpperCase() !== cleanHwid) {
     return res.status(403).json({
       valid: false,
-      message: `Hardware mismatch: This license is locked to another machine (${license.deviceName || license.deviceId}). Reset your device in the dashboard to transfer.`,
+      message: `Hardware ID mismatch. This key is locked to HWID: ${license.deviceId}. Reset HWID lock in your dashboard to transfer.`,
     });
   }
 
-  // HWID matched & active
+  // HWID matches
   return res.status(200).json({
     valid: true,
     plan: license.plan,
     assignedTo: license.assignedTo,
     expiresAt: license.expiresAt,
-    bound: true,
-    message: 'License verified successfully.',
+    deviceId: cleanHwid,
+    message: `License verified on locked hardware: ${cleanHwid}`,
   });
 }

@@ -25,6 +25,8 @@ export interface AppActions {
   updateStaff: (id: string, changes: Partial<StaffMember>) => void;
   addStaff: (member: Omit<StaffMember, 'id'>) => void;
   deleteStaff: (id: string) => void;
+  deleteAuditEntry: (id: string) => void;
+  clearAuditLog: () => void;
   addAudit: (entry: Omit<AuditEntry, 'id' | 'timestamp' | 'actor' | 'actorRole'>) => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -360,8 +362,24 @@ function Header({ view, user }: { view: View; user: StaffMember }) {
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [authState, setAuthState] = useState<AuthState>('login');
-  const [currentUser, setCurrentUser] = useState<StaffMember | null>(null);
+  const [authState, setAuthState] = useState<AuthState>(() => {
+    try {
+      const savedUser = localStorage.getItem('yv27-auth-session');
+      return savedUser ? 'app' : 'login';
+    } catch {
+      return 'login';
+    }
+  });
+
+  const [currentUser, setCurrentUser] = useState<StaffMember | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('yv27-auth-session');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [view, setView] = useState<View>('dashboard');
 
   const [licenses, setLicenses] = useState<License[]>(() =>
@@ -375,7 +393,47 @@ export default function App() {
   );
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  useEffect(() => { localStorage.setItem('yv27-licenses', JSON.stringify(licenses)); }, [licenses]);
+  // Initial load and live polling with serverless backend
+  useEffect(() => {
+    fetch('/api/state')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.data?.licenses && Array.isArray(json.data.licenses)) {
+          setLicenses(json.data.licenses);
+        }
+        if (json?.data?.staff && Array.isArray(json.data.staff)) {
+          setStaff(json.data.staff);
+        }
+        if (json?.data?.auditLog && Array.isArray(json.data.auditLog)) {
+          setAuditLog(json.data.auditLog);
+        }
+      })
+      .catch(() => {});
+
+    // Poll every 4 seconds to catch HWID locks from desktop activations in real-time
+    const interval = setInterval(() => {
+      fetch('/api/state')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json?.data?.licenses && Array.isArray(json.data.licenses)) {
+            setLicenses(json.data.licenses);
+          }
+        })
+        .catch(() => {});
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('yv27-licenses', JSON.stringify(licenses));
+    fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ licenses, staff, auditLog }),
+    }).catch(() => {});
+  }, [licenses, staff, auditLog]);
+
   useEffect(() => { localStorage.setItem('yv27-staff',   JSON.stringify(staff));    }, [staff]);
   useEffect(() => { localStorage.setItem('yv27-audit',   JSON.stringify(auditLog)); }, [auditLog]);
 
@@ -409,9 +467,14 @@ export default function App() {
     setLicenses((prev) => [{ ...license, id: newId() }, ...prev]);
   }, []);
 
+  // Owner & Admin can delete license keys
   const deleteLicense = useCallback((id: string) => {
+    if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'admin')) {
+      showToast('Permission denied: Only Owner & Admin can delete license keys.', 'error');
+      return;
+    }
     setLicenses((prev) => prev.filter((l) => l.id !== id));
-  }, []);
+  }, [currentUser, showToast]);
 
   const updateStaff = useCallback((id: string, changes: Partial<StaffMember>) => {
     setStaff((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
@@ -421,15 +484,44 @@ export default function App() {
     setStaff((prev) => [...prev, { ...member, id: newId() }]);
   }, []);
 
+  // ONLY Owner can delete staff / admin accounts
   const deleteStaff = useCallback((id: string) => {
+    if (!currentUser || currentUser.role !== 'owner') {
+      showToast('Permission denied: Only the Owner can delete credentials.', 'error');
+      return;
+    }
     setStaff((prev) => prev.filter((s) => s.id !== id));
-  }, []);
+  }, [currentUser, showToast]);
 
-  function handleLogin(email: string, password: string): boolean {
+  // ONLY Owner can delete audit log events
+  const deleteAuditEntry = useCallback((id: string) => {
+    if (!currentUser || currentUser.role !== 'owner') {
+      showToast('Permission denied: Only the Owner can delete audit logs.', 'error');
+      return;
+    }
+    setAuditLog((prev) => prev.filter((e) => e.id !== id));
+  }, [currentUser, showToast]);
+
+  // ONLY Owner can clear audit log
+  const clearAuditLog = useCallback(() => {
+    if (!currentUser || currentUser.role !== 'owner') {
+      showToast('Permission denied: Only the Owner can clear audit log.', 'error');
+      return;
+    }
+    setAuditLog([]);
+  }, [currentUser, showToast]);
+
+  function handleLogin(email: string, password: string, remember: boolean): boolean {
     const user = staff.find(
-      (s) => s.email === email && s.password === password && s.status === 'active'
+      (s) => s.email.toLowerCase() === email.toLowerCase() && s.password === password && s.status === 'active'
     );
     if (!user) return false;
+
+    if (remember) {
+      localStorage.setItem('yv27-auth-session', JSON.stringify(user));
+    } else {
+      sessionStorage.setItem('yv27-auth-session', JSON.stringify(user));
+    }
 
     setAuthState('authenticating');
     setTimeout(() => {
@@ -453,11 +545,13 @@ export default function App() {
         ...prev,
       ]);
       setAuthState('app');
-    }, 2000);
+    }, 1200);
     return true;
   }
 
   function handleLogout() {
+    localStorage.removeItem('yv27-auth-session');
+    sessionStorage.removeItem('yv27-auth-session');
     setAuthState('login');
     setCurrentUser(null);
     setView('dashboard');
@@ -476,8 +570,12 @@ export default function App() {
   const appActions: AppActions = {
     updateLicense,
     addLicense,
+    deleteLicense,
     updateStaff,
     addStaff,
+    deleteStaff,
+    deleteAuditEntry,
+    clearAuditLog,
     addAudit,
     showToast,
   };
@@ -496,7 +594,7 @@ export default function App() {
             {view === 'licenses'  && <LicensesPage  data={appData} actions={appActions} />}
             {view === 'devices'   && <DevicesPage   data={appData} actions={appActions} />}
             {view === 'staff'     && <StaffPage     data={appData} actions={appActions} />}
-            {view === 'audit'     && <AuditLogPage  data={appData} />}
+            {view === 'audit'     && <AuditLogPage  data={appData} actions={appActions} />}
           </div>
         </main>
       </div>
