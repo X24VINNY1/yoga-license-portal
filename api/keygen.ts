@@ -78,6 +78,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (duration !== 'Lifetime') {
           const daysMap: Record<string, number> = {
+            '1 Day': 1,
+            '3 Days': 3,
+            '5 Days': 5,
+            '7 Days': 7,
             '1 Month': 30,
             '3 Months': 90,
             '6 Months': 180,

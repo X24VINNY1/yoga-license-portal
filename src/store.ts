@@ -95,12 +95,16 @@ export function addDaysFromNow(days: number): string {
 }
 
 export const DURATION_DAYS: Record<string, number> = {
+  '1 Day': 1,
+  '3 Days': 3,
+  '5 Days': 5,
+  '7 Days': 7,
   '1 Month': 30,
   '3 Months': 90,
   '6 Months': 180,
   '1 Year': 365,
   '2 Years': 730,
-  Lifetime: 36500,
+  'Lifetime': 36500,
 };
 
 export const PLANS = ['Starter', 'Professional', 'Enterprise'];
