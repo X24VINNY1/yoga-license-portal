@@ -190,6 +190,7 @@ function EditModal({
   member: StaffMember; onClose: () => void; actions: AppActions; currentUser: StaffMember;
 }) {
   const [confirmDisable, setConfirmDisable] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const isSelf = member.id === currentUser.id;
   const canEdit = currentUser.role === 'owner' || (currentUser.role === 'admin' && member.role === 'staff');
@@ -207,6 +208,21 @@ function EditModal({
     });
     actions.showToast(next === 'disabled' ? 'Account disabled' : 'Account re-enabled');
     setConfirmDisable(false);
+    onClose();
+  }
+
+  function doDelete() {
+    actions.deleteStaff(member.id);
+    actions.addAudit({
+      action: 'Staff Deleted',
+      targetType: 'staff',
+      target: member.name,
+      details: `Permanently deleted account ${member.email}`,
+      ipAddress: '198.51.100.1',
+      severity: 'critical',
+    });
+    actions.showToast(`Deleted ${member.name}'s credentials`, 'info');
+    setConfirmDelete(false);
     onClose();
   }
 
@@ -251,17 +267,15 @@ function EditModal({
           <div className="flex gap-2">
             <button
               onClick={() => setConfirmDisable(false)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
               style={{ background: 'rgba(255,255,255,0.05)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)' }}
             >
               Cancel
             </button>
             <button
               onClick={toggleStatus}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
               style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.25)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.22)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.15)'; }}
             >
               Confirm
             </button>
@@ -269,24 +283,60 @@ function EditModal({
         </div>
       )}
 
-      {!confirmDisable && (
-        <div className="flex gap-2 mt-5 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-          {!isSelf && canEdit && (
+      {confirmDelete && !isSelf && canEdit && (
+        <div
+          className="mt-4 p-3.5 rounded-xl"
+          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}
+        >
+          <p className="text-xs mb-3" style={{ color: '#fca5a5' }}>
+            Are you sure you want to permanently delete credentials for {member.name}? This cannot be undone.
+          </p>
+          <div className="flex gap-2">
             <button
-              onClick={() => setConfirmDisable(true)}
-              className="px-3 py-2 rounded-xl text-xs font-medium transition-all"
-              style={{
-                background: member.status === 'active' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
-                color: member.status === 'active' ? '#fca5a5' : '#86efac',
-                border: `1px solid ${member.status === 'active' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}`,
-              }}
+              onClick={() => setConfirmDelete(false)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
+              style={{ background: 'rgba(255,255,255,0.05)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)' }}
             >
-              {member.status === 'active' ? 'Disable Account' : 'Enable Account'}
+              Cancel
             </button>
+            <button
+              onClick={doDelete}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
+              style={{ background: '#dc2626', color: '#ffffff', border: 'none' }}
+            >
+              Confirm Delete
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!confirmDisable && !confirmDelete && (
+        <div className="flex flex-wrap gap-2 mt-5 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          {!isSelf && canEdit && (
+            <>
+              <button
+                onClick={() => setConfirmDisable(true)}
+                className="px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer"
+                style={{
+                  background: member.status === 'active' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
+                  color: member.status === 'active' ? '#fca5a5' : '#86efac',
+                  border: `1px solid ${member.status === 'active' ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)'}`,
+                }}
+              >
+                {member.status === 'active' ? 'Disable Account' : 'Enable Account'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer"
+                style={{ background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.25)' }}
+              >
+                Delete Account
+              </button>
+            </>
           )}
           <button
             onClick={onClose}
-            className="px-3 py-2 rounded-xl text-xs font-medium transition-all ml-auto"
+            className="px-3 py-2 rounded-xl text-xs font-medium transition-all ml-auto cursor-pointer"
             style={{ background: 'rgba(255,255,255,0.05)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)' }}
           >
             Close

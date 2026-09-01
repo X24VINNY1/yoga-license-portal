@@ -21,8 +21,10 @@ export interface AppData {
 export interface AppActions {
   updateLicense: (id: string, changes: Partial<License>) => void;
   addLicense: (license: Omit<License, 'id'>) => void;
+  deleteLicense: (id: string) => void;
   updateStaff: (id: string, changes: Partial<StaffMember>) => void;
   addStaff: (member: Omit<StaffMember, 'id'>) => void;
+  deleteStaff: (id: string) => void;
   addAudit: (entry: Omit<AuditEntry, 'id' | 'timestamp' | 'actor' | 'actorRole'>) => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -407,12 +409,20 @@ export default function App() {
     setLicenses((prev) => [{ ...license, id: newId() }, ...prev]);
   }, []);
 
+  const deleteLicense = useCallback((id: string) => {
+    setLicenses((prev) => prev.filter((l) => l.id !== id));
+  }, []);
+
   const updateStaff = useCallback((id: string, changes: Partial<StaffMember>) => {
     setStaff((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
   }, []);
 
   const addStaff = useCallback((member: Omit<StaffMember, 'id'>) => {
     setStaff((prev) => [...prev, { ...member, id: newId() }]);
+  }, []);
+
+  const deleteStaff = useCallback((id: string) => {
+    setStaff((prev) => prev.filter((s) => s.id !== id));
   }, []);
 
   function handleLogin(email: string, password: string): boolean {

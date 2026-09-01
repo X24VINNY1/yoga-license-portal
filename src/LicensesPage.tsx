@@ -5,7 +5,7 @@ import { generateKey, newId, fmtDate, fmtDateTime, PLANS, DURATION_DAYS, addDays
 
 interface Props { data: AppData; actions: AppActions; }
 
-// ── Shared primitives ──────────────────────────────────────────────────────────
+// ── Status & Plan Badges ──────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: LicenseStatus }) {
   const map: Record<LicenseStatus, { bg: string; border: string; dot: string; text: string; label: string }> = {
@@ -43,20 +43,6 @@ function PlanBadge({ plan }: { plan: string }) {
   );
 }
 
-function DeviceDot({ linked }: { linked: boolean }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span
-        className="w-1.5 h-1.5 rounded-full shrink-0"
-        style={{ background: linked ? '#22c55e' : '#334155' }}
-      />
-      <span className="text-xs" style={{ color: linked ? '#86efac' : '#475569' }}>
-        {linked ? 'Linked' : 'None'}
-      </span>
-    </div>
-  );
-}
-
 function Btn({
   children, variant = 'ghost', onClick, disabled,
 }: {
@@ -75,7 +61,7 @@ function Btn({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150"
+      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer"
       style={{
         background: s.bg,
         color: s.color,
@@ -127,12 +113,12 @@ function FieldSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-all duration-150 appearance-none"
+        className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-all duration-150"
         style={{ background: '#0d1828', border: '1px solid rgba(255,255,255,0.08)', color: '#e2e8f0' }}
-        onFocus={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(96,165,250,0.4)'; }}
-        onBlur={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
       >
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        {options.map((o) => (
+          <option key={o} value={o} style={{ background: '#111827' }}>{o}</option>
+        ))}
       </select>
     </div>
   );
@@ -142,7 +128,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
@@ -156,40 +142,37 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
           <p className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>{title}</p>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150"
-            style={{ color: '#475569', background: 'transparent' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.06)'; (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#475569'; }}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all cursor-pointer"
+            style={{ color: '#475569' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#475569'; }}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+            ✕
           </button>
         </div>
-        <div className="px-6 py-5 overflow-y-auto max-h-[70vh]">{children}</div>
+        <div className="px-6 py-5">{children}</div>
       </div>
     </div>
   );
 }
 
-// ── Generate modal ────────────────────────────────────────────────────────────
+// ── Generate License Modal ───────────────────────────────────────────────────
+
 function GenerateModal({
   onClose, actions, currentUser,
 }: {
-  onClose: () => void;
-  actions: AppActions;
-  currentUser: { name: string };
+  onClose: () => void; actions: AppActions; currentUser: any;
 }) {
-  const [plan, setPlan]       = useState('Professional');
-  const [name, setName]       = useState('');
-  const [email, setEmail]     = useState('');
+  const [plan, setPlan]         = useState('Professional');
   const [duration, setDuration] = useState('1 Year');
-  const [notes, setNotes]     = useState('');
-  const [error, setError]     = useState('');
+  const [name, setName]         = useState('');
+  const [email, setEmail]       = useState('');
+  const [notes, setNotes]       = useState('');
+  const [error, setError]       = useState('');
 
   function handleSubmit() {
     if (!name.trim() || !email.trim()) {
-      setError('Customer name and email are required.');
+      setError('Please fill in customer name and email.');
       return;
     }
     const key = generateKey();
@@ -233,12 +216,10 @@ function GenerateModal({
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Internal notes about this license..."
+            placeholder="Notes about this license..."
             rows={2}
-            className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none transition-all duration-150"
+            className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none"
             style={{ background: '#0d1828', border: '1px solid rgba(255,255,255,0.08)', color: '#e2e8f0' }}
-            onFocus={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(96,165,250,0.4)'; }}
-            onBlur={(e) => { (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
           />
         </div>
         {error && (
@@ -255,19 +236,39 @@ function GenerateModal({
   );
 }
 
-// ── View / Edit modal ─────────────────────────────────────────────────────────
+// ── View / Manage HWID / Delete Modal ────────────────────────────────────────
+
 function ViewModal({
   license, onClose, actions,
 }: {
   license: License; onClose: () => void; actions: AppActions;
 }) {
   const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   function doRevoke() {
     actions.updateLicense(license.id, { status: 'revoked' });
     actions.addAudit({ action: 'License Revoked', targetType: 'license', target: license.key, details: `Revoked license for ${license.assignedTo}`, ipAddress: '198.51.100.1', severity: 'critical' });
     actions.showToast('License revoked', 'error');
     onClose();
+  }
+
+  function doDelete() {
+    actions.deleteLicense(license.id);
+    actions.addAudit({ action: 'License Deleted', targetType: 'license', target: license.key, details: `Permanently deleted license for ${license.assignedTo}`, ipAddress: '198.51.100.1', severity: 'critical' });
+    actions.showToast('License deleted permanently', 'info');
+    onClose();
+  }
+
+  function doResetHwid() {
+    actions.updateLicense(license.id, {
+      deviceId: null,
+      deviceName: null,
+      devicePlatform: null,
+      deviceAssociatedAt: null,
+    });
+    actions.addAudit({ action: 'HWID Reset', targetType: 'device', target: license.key, details: `Reset HWID lock for ${license.assignedTo}`, ipAddress: '198.51.100.1', severity: 'warning' });
+    actions.showToast('HWID unlocked. User can now activate on a new machine.');
   }
 
   function doSuspend() {
@@ -287,21 +288,21 @@ function ViewModal({
     onClose();
   }
 
-  function copyKey() {
-    navigator.clipboard.writeText(license.key).then(() => {
-      actions.showToast('License key copied to clipboard', 'info');
+  function copyText(text: string, label: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      actions.showToast(`${label} copied to clipboard`, 'info');
     });
   }
 
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div className="flex items-start gap-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-      <span className="w-28 shrink-0 text-xs font-medium" style={{ color: '#475569' }}>{label}</span>
+      <span className="w-32 shrink-0 text-xs font-medium" style={{ color: '#475569' }}>{label}</span>
       <span className="text-xs flex-1" style={{ color: '#cbd5e1' }}>{value}</span>
     </div>
   );
 
   return (
-    <Modal title="License Details" onClose={onClose}>
+    <Modal title="License & Hardware Lock Details" onClose={onClose}>
       <div className="space-y-0">
         <div className="flex items-center gap-3 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <code
@@ -311,52 +312,56 @@ function ViewModal({
             {license.key}
           </code>
           <button
-            onClick={copyKey}
-            className="p-2 rounded-lg transition-all duration-150"
+            onClick={() => copyText(license.key, 'License key')}
+            className="p-2 rounded-lg transition-all duration-150 cursor-pointer"
             style={{ background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.08)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#93c5fd'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#64748b'; }}
             title="Copy key"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <rect x="4" y="4" width="8" height="9" rx="1" stroke="currentColor" strokeWidth="1.3" />
-              <path d="M2 10V2h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
+            📋
           </button>
         </div>
-        <Row label="Status"    value={<StatusBadge status={license.status} />} />
-        <Row label="Plan"      value={<PlanBadge plan={license.plan} />} />
-        <Row label="Assigned"  value={`${license.assignedTo} — ${license.assignedEmail}`} />
-        <Row label="Created"   value={fmtDate(license.createdAt)} />
-        <Row label="Expires"   value={fmtDate(license.expiresAt)} />
-        <Row label="Created by" value={license.createdBy} />
-        <Row label="Device"    value={
-          license.deviceId ? (
-            <span>
-              {license.deviceName} <span style={{ color: '#475569' }}>({license.devicePlatform})</span>
-              <br />
-              <span style={{ color: '#334155', fontSize: '11px' }}>
-                ID: {license.deviceId} · Associated {license.deviceAssociatedAt ? fmtDate(license.deviceAssociatedAt) : '—'}
-              </span>
-            </span>
-          ) : (
-            <span style={{ color: '#475569' }}>No device associated</span>
-          )
-        } />
-        {license.notes && (
-          <Row label="Notes" value={<span style={{ color: '#64748b' }}>{license.notes}</span>} />
-        )}
+        <Row label="Status" value={<StatusBadge status={license.status} />} />
+        <Row label="Plan" value={<PlanBadge plan={license.plan} />} />
+        <Row label="Assigned User" value={`${license.assignedTo} (${license.assignedEmail})`} />
+        <Row label="Created" value={fmtDate(license.createdAt)} />
+        <Row label="Expires" value={fmtDate(license.expiresAt)} />
+        <Row
+          label="Hardware ID (HWID)"
+          value={
+            license.deviceId ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <code className="px-2 py-1 rounded bg-[#0d1828] text-[#38bdf8] font-mono text-xs border border-[rgba(56,189,248,0.25)] font-bold">
+                    {license.deviceId}
+                  </code>
+                  <button
+                    onClick={() => copyText(license.deviceId!, 'HWID')}
+                    className="px-2 py-1 rounded text-[11px] bg-[rgba(255,255,255,0.06)] text-[#93c5fd] hover:bg-[rgba(255,255,255,0.1)] cursor-pointer"
+                  >
+                    Copy
+                  </button>
+                  <button
+                    onClick={doResetHwid}
+                    className="px-2 py-1 rounded text-[11px] bg-[rgba(245,158,11,0.15)] text-[#fcd34d] hover:bg-[rgba(245,158,11,0.25)] cursor-pointer"
+                  >
+                    Unlock / Reset HWID
+                  </button>
+                </div>
+                <p className="text-[11px]" style={{ color: '#64748b' }}>
+                  {license.deviceName || 'PC'} · {license.devicePlatform || 'Windows'} · Locked on {license.deviceAssociatedAt ? fmtDate(license.deviceAssociatedAt) : 'Active'}
+                </p>
+              </div>
+            ) : (
+              <span className="text-[#64748b] font-medium">Unlinked (Will automatically lock on first activation)</span>
+            )
+          }
+        />
+        {license.notes && <Row label="Notes" value={<span style={{ color: '#64748b' }}>{license.notes}</span>} />}
       </div>
 
-      {/* Confirm revoke */}
       {confirmRevoke && (
-        <div
-          className="mt-4 p-3.5 rounded-xl"
-          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
-        >
-          <p className="text-xs mb-3" style={{ color: '#fca5a5' }}>
-            This action is permanent and cannot be undone. Are you sure you want to revoke this license?
-          </p>
+        <div className="mt-4 p-3.5 rounded-xl bg-[rgba(239,68,68,0.08)] border border-[rgba(239,68,68,0.2)]">
+          <p className="text-xs mb-3 text-[#fca5a5]">Are you sure you want to revoke this license?</p>
           <div className="flex gap-2">
             <Btn onClick={() => setConfirmRevoke(false)}>Cancel</Btn>
             <Btn variant="danger" onClick={doRevoke}>Confirm Revoke</Btn>
@@ -364,8 +369,24 @@ function ViewModal({
         </div>
       )}
 
-      {/* Actions */}
-      {!confirmRevoke && (
+      {confirmDelete && (
+        <div className="mt-4 p-3.5 rounded-xl bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)]">
+          <p className="text-xs mb-3 text-[#fca5a5]">
+            Permanently delete license {license.key}? It will be completely removed from the database.
+          </p>
+          <div className="flex gap-2">
+            <Btn onClick={() => setConfirmDelete(false)}>Cancel</Btn>
+            <button
+              onClick={doDelete}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#dc2626] text-white cursor-pointer"
+            >
+              Confirm Delete
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!confirmRevoke && !confirmDelete && (
         <div className="flex flex-wrap gap-2 mt-5 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           {(license.status === 'expired' || license.status === 'suspended') && (
             <Btn variant="primary" onClick={doRenew}>Renew (1 Year)</Btn>
@@ -378,6 +399,12 @@ function ViewModal({
           {license.status !== 'revoked' && (
             <Btn variant="danger" onClick={() => setConfirmRevoke(true)}>Revoke</Btn>
           )}
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[rgba(239,68,68,0.12)] text-[#fca5a5] border border-[rgba(239,68,68,0.25)] cursor-pointer"
+          >
+            Delete License
+          </button>
           <Btn onClick={onClose}>Close</Btn>
         </div>
       )}
@@ -385,150 +412,131 @@ function ViewModal({
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Main Licenses Page ───────────────────────────────────────────────────────
+
 export default function LicensesPage({ data, actions }: Props) {
   const { licenses, currentUser } = data;
 
-  const [search, setSearch]         = useState('');
+  const [search, setSearch]             = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterPlan, setFilterPlan]     = useState<string>('all');
   const [showGenerate, setShowGenerate] = useState(false);
   const [viewLicense, setViewLicense]   = useState<License | null>(null);
+
+  const counts = useMemo(() => {
+    return {
+      all: licenses.length,
+      active: licenses.filter((l) => l.status === 'active').length,
+      revoked: licenses.filter((l) => l.status === 'revoked').length,
+      expired: licenses.filter((l) => l.status === 'expired').length,
+      suspended: licenses.filter((l) => l.status === 'suspended').length,
+    };
+  }, [licenses]);
 
   const filtered = useMemo(() => {
     let list = licenses;
     if (filterStatus !== 'all') list = list.filter((l) => l.status === filterStatus);
-    if (filterPlan !== 'all')   list = list.filter((l) => l.plan === filterPlan);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
         (l) =>
           l.key.toLowerCase().includes(q) ||
           l.assignedTo.toLowerCase().includes(q) ||
-          l.assignedEmail.toLowerCase().includes(q)
+          l.assignedEmail.toLowerCase().includes(q) ||
+          (l.deviceId && l.deviceId.toLowerCase().includes(q))
       );
     }
     return list;
-  }, [licenses, search, filterStatus, filterPlan]);
-
-  function copyKey(key: string) {
-    navigator.clipboard.writeText(key).then(() => {
-      actions.showToast('License key copied', 'info');
-    });
-  }
-
-  function quickToggle(l: License) {
-    const next: LicenseStatus = l.status === 'suspended' ? 'active' : 'suspended';
-    actions.updateLicense(l.id, { status: next });
-    actions.addAudit({
-      action: next === 'suspended' ? 'License Suspended' : 'License Activated',
-      targetType: 'license',
-      target: l.key,
-      details: `${next === 'suspended' ? 'Suspended' : 'Activated'} license for ${l.assignedTo}`,
-      ipAddress: '198.51.100.1',
-      severity: next === 'suspended' ? 'warning' : 'info',
-    });
-    actions.showToast(next === 'suspended' ? 'License suspended' : 'License activated');
-  }
-
-  function quickRenew(l: License) {
-    const newExp = addDaysFromNow(DURATION_DAYS['1 Year']);
-    actions.updateLicense(l.id, { status: 'active', expiresAt: newExp });
-    actions.addAudit({ action: 'License Renewed', targetType: 'license', target: l.key, details: `Renewed for ${l.assignedTo}`, ipAddress: '198.51.100.1', severity: 'info' });
-    actions.showToast('License renewed');
-  }
+  }, [licenses, search, filterStatus]);
 
   const canManage = currentUser.role === 'owner' || currentUser.role === 'admin';
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 mb-5 flex-wrap">
-        <div
-          className="flex items-center gap-2 flex-1 min-w-48 px-3.5 py-2 rounded-xl"
-          style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.07)' }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: '#334155', flexShrink: 0 }}>
-            <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.3" />
-            <path d="M9.5 9.5l2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-          </svg>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by key, name, or email…"
-            className="flex-1 bg-transparent outline-none text-sm min-w-0"
-            style={{ color: '#e2e8f0' }}
-          />
-        </div>
-
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 rounded-xl text-xs outline-none appearance-none"
-          style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.07)', color: '#64748b' }}
-        >
-          <option value="all">All Statuses</option>
-          <option value="active">Active</option>
-          <option value="expired">Expired</option>
-          <option value="suspended">Suspended</option>
-          <option value="revoked">Revoked</option>
-        </select>
-
-        <select
-          value={filterPlan}
-          onChange={(e) => setFilterPlan(e.target.value)}
-          className="px-3 py-2 rounded-xl text-xs outline-none appearance-none"
-          style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.07)', color: '#64748b' }}
-        >
-          <option value="all">All Plans</option>
-          {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+    <div className="p-6 max-w-7xl mx-auto space-y-5">
+      {/* ── Filter Organization Tabs ── */}
+      <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.07)] pb-3 flex-wrap">
+        {[
+          { id: 'all', label: 'All Licenses', count: counts.all },
+          { id: 'active', label: 'Active', count: counts.active, color: '#34d399' },
+          { id: 'revoked', label: 'Revoked', count: counts.revoked, color: '#f87171' },
+          { id: 'expired', label: 'Expired', count: counts.expired, color: '#94a3b8' },
+          { id: 'suspended', label: 'Suspended', count: counts.suspended, color: '#fbbf24' },
+        ].map((tab) => {
+          const active = filterStatus === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setFilterStatus(tab.id)}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+              style={{
+                background: active ? 'rgba(56,189,248,0.12)' : 'transparent',
+                color: active ? '#38bdf8' : '#64748b',
+                border: active ? '1px solid rgba(56,189,248,0.3)' : '1px solid transparent',
+              }}
+            >
+              <span>{tab.label}</span>
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                style={{
+                  background: active ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.04)',
+                  color: tab.color || '#cbd5e1',
+                }}
+              >
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
 
         {canManage && (
           <button
             onClick={() => setShowGenerate(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-150"
-            style={{ background: '#2563eb', color: '#fff' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#1d4ed8'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#2563eb'; }}
+            className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-[#0284c7] text-white hover:bg-[#0369a1] transition-all cursor-pointer"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-            Generate License
+            + Generate License
           </button>
         )}
       </div>
 
-      {/* Table */}
+      {/* ── Search Toolbar ── */}
       <div
-        className="rounded-2xl overflow-hidden"
-        style={{ border: '1px solid rgba(255,255,255,0.07)' }}
+        className="flex items-center gap-2 px-3.5 py-2 rounded-xl"
+        style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.07)' }}
       >
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr style={{ background: '#0b1220' }}>
-                {['License Key', 'Status', 'Plan', 'Assigned To', 'Expires', 'Device', 'Actions'].map((col) => (
-                  <th
-                    key={col}
-                    className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider uppercase"
-                    style={{ color: '#334155', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}
-                  >
-                    {col}
-                  </th>
-                ))}
+        <span className="text-sm">🔍</span>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by license key, customer name, email, or HWID…"
+          className="flex-1 bg-transparent outline-none text-sm"
+          style={{ color: '#e2e8f0' }}
+        />
+      </div>
+
+      {/* ── Licenses Table ── */}
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr style={{ background: '#0b1220' }}>
+              {['License Key', 'Status', 'Plan', 'Assigned User', 'Hardware ID (HWID)', 'Expires', 'Actions'].map((col) => (
+                <th
+                  key={col}
+                  className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider uppercase"
+                  style={{ color: '#475569', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+                >
+                  {col}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-xs text-[#64748b]">
+                  No licenses found in this category.
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: '#334155' }}>
-                    No licenses match your filters.
-                  </td>
-                </tr>
-              )}
-              {filtered.map((l) => (
+            ) : (
+              filtered.map((l) => (
                 <tr
                   key={l.id}
                   style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: '#0f1520' }}
@@ -536,100 +544,49 @@ export default function LicensesPage({ data, actions }: Props) {
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#0f1520'; }}
                 >
                   <td className="px-4 py-3">
-                    <code className="text-xs font-mono" style={{ color: '#60a5fa' }}>{l.key}</code>
+                    <code className="text-xs font-mono font-bold text-[#60a5fa]">{l.key}</code>
                   </td>
                   <td className="px-4 py-3"><StatusBadge status={l.status} /></td>
                   <td className="px-4 py-3"><PlanBadge plan={l.plan} /></td>
                   <td className="px-4 py-3">
-                    <p className="text-xs font-medium" style={{ color: '#cbd5e1' }}>{l.assignedTo}</p>
-                    <p className="text-[11px]" style={{ color: '#475569' }}>{l.assignedEmail}</p>
+                    <p className="text-xs font-medium text-[#e2e8f0]">{l.assignedTo}</p>
+                    <p className="text-[11px] text-[#475569]">{l.assignedEmail}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-xs" style={{ color: '#64748b' }}>{fmtDate(l.expiresAt)}</span>
+                    {l.deviceId ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono bg-[rgba(56,189,248,0.1)] text-[#38bdf8] border border-[rgba(56,189,248,0.2)]">
+                        🔒 {l.deviceId}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-[#475569]">Unbound</span>
+                    )}
                   </td>
+                  <td className="px-4 py-3 text-xs text-[#64748b]">{fmtDate(l.expiresAt)}</td>
                   <td className="px-4 py-3">
-                    <DeviceDot linked={!!l.deviceId} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      {/* Copy */}
-                      <button
-                        onClick={() => copyKey(l.key)}
-                        className="p-1.5 rounded-lg transition-all duration-100"
-                        style={{ color: '#334155', background: 'transparent' }}
-                        title="Copy key"
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(96,165,250,0.08)'; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#334155'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                      >
-                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                          <rect x="3.5" y="3.5" width="7.5" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" />
-                          <path d="M2 9V2h7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                      {/* View */}
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => setViewLicense(l)}
-                        className="p-1.5 rounded-lg transition-all duration-100"
-                        style={{ color: '#334155', background: 'transparent' }}
-                        title="View details"
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#93c5fd'; (e.currentTarget as HTMLElement).style.background = 'rgba(96,165,250,0.08)'; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#334155'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                        className="text-xs px-2.5 py-1 rounded-lg bg-[rgba(255,255,255,0.04)] text-[#93c5fd] hover:bg-[rgba(96,165,250,0.1)] border border-[rgba(255,255,255,0.07)] cursor-pointer"
                       >
-                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                          <path d="M1 6.5C2.5 3.5 4.3 2 6.5 2S10.5 3.5 12 6.5C10.5 9.5 8.7 11 6.5 11S2.5 9.5 1 6.5z" stroke="currentColor" strokeWidth="1.2" />
-                          <circle cx="6.5" cy="6.5" r="1.8" stroke="currentColor" strokeWidth="1.2" />
-                        </svg>
+                        View
                       </button>
-                      {/* Quick action */}
-                      {canManage && (
-                        <>
-                          {(l.status === 'active' || l.status === 'suspended') && (
-                            <button
-                              onClick={() => quickToggle(l)}
-                              className="p-1.5 rounded-lg transition-all duration-100"
-                              style={{ color: '#334155', background: 'transparent' }}
-                              title={l.status === 'suspended' ? 'Activate' : 'Suspend'}
-                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#fcd34d'; (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.08)'; }}
-                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#334155'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                            >
-                              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                                <path d="M6.5 2v2.5M6.5 8.5V11M2 6.5h2.5M8.5 6.5H11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                                <circle cx="6.5" cy="6.5" r="2" stroke="currentColor" strokeWidth="1.2" />
-                              </svg>
-                            </button>
-                          )}
-                          {(l.status === 'expired') && (
-                            <button
-                              onClick={() => quickRenew(l)}
-                              className="p-1.5 rounded-lg transition-all duration-100"
-                              style={{ color: '#334155', background: 'transparent' }}
-                              title="Renew 1 year"
-                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#86efac'; (e.currentTarget as HTMLElement).style.background = 'rgba(34,197,94,0.08)'; }}
-                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = '#334155'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                            >
-                              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                                <path d="M2.5 6.5A4 4 0 0110.5 4M10.5 6.5A4 4 0 012.5 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                                <path d="M10.5 2v2.5H8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </button>
-                          )}
-                        </>
-                      )}
+                      <button
+                        onClick={() => {
+                          actions.deleteLicense(l.id);
+                          actions.showToast('License deleted', 'info');
+                        }}
+                        className="text-xs px-2 py-1 rounded-lg bg-[rgba(239,68,68,0.1)] text-[#fca5a5] hover:bg-[rgba(239,68,68,0.2)] cursor-pointer"
+                        title="Delete license"
+                      >
+                        🗑
+                      </button>
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div
-          className="px-5 py-3 flex items-center justify-between"
-          style={{ background: '#0b1220', borderTop: '1px solid rgba(255,255,255,0.06)' }}
-        >
-          <p className="text-xs" style={{ color: '#334155' }}>
-            Showing {filtered.length} of {licenses.length} licenses
-          </p>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {showGenerate && (
@@ -639,6 +596,7 @@ export default function LicensesPage({ data, actions }: Props) {
           currentUser={currentUser}
         />
       )}
+
       {viewLicense && (
         <ViewModal
           license={viewLicense}
