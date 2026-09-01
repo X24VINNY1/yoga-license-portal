@@ -163,22 +163,21 @@ function GenerateModal({
 }: {
   onClose: () => void; actions: AppActions; currentUser: any;
 }) {
-  const [plan, setPlan]         = useState('Professional');
-  const [duration, setDuration] = useState('1 Year');
-  const [name, setName]         = useState('');
-  const [email, setEmail]       = useState('');
-  const [notes, setNotes]       = useState('');
-  const [error, setError]       = useState('');
+  const [duration, setDuration]   = useState('1 Year');
+  const [name, setName]           = useState('');
+  const [discordId, setDiscordId] = useState('');
+  const [notes, setNotes]         = useState('');
+  const [error, setError]         = useState('');
 
   function handleSubmit() {
-    if (!name.trim() || !email.trim()) {
-      setError('Please fill in customer name and email.');
+    if (!name.trim() || !discordId.trim()) {
+      setError('Please fill in customer name and Discord ID.');
       return;
     }
     actions.addLicense({
       name: name.trim(),
-      email: email.trim(),
-      plan,
+      email: discordId.trim(),
+      plan: 'Standard',
       duration,
       notes: notes.trim(),
     } as any);
@@ -186,7 +185,7 @@ function GenerateModal({
       action: 'License Created',
       targetType: 'license',
       target: name.trim(),
-      details: `Created ${plan} (${duration}) license on Keygen.sh for ${name.trim()} (${email.trim()})`,
+      details: `Created (${duration}) license on Keygen.sh for ${name.trim()} (Discord: ${discordId.trim()})`,
       ipAddress: '198.51.100.1',
       severity: 'info',
     });
@@ -196,9 +195,8 @@ function GenerateModal({
   return (
     <Modal title="Generate New License" onClose={onClose}>
       <div className="space-y-4">
-        <FieldSelect label="Plan" value={plan} onChange={setPlan} options={PLANS} />
         <FieldInput label="Customer Name" value={name} onChange={setName} placeholder="Jane Smith" required />
-        <FieldInput label="Email Address" value={email} onChange={setEmail} type="email" placeholder="customer@email.com" required />
+        <FieldInput label="Discord ID" value={discordId} onChange={setDiscordId} placeholder="@username or Discord ID" required />
         <FieldSelect label="Duration" value={duration} onChange={setDuration} options={Object.keys(DURATION_DAYS)} />
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-medium" style={{ color: '#64748b' }}>Notes (optional)</label>
@@ -315,8 +313,8 @@ function ViewModal({
           </button>
         </div>
         <Row label="Status" value={<StatusBadge status={license.status} />} />
-        <Row label="Plan" value={<PlanBadge plan={license.plan} />} />
-        <Row label="Assigned User" value={`${license.assignedTo} (${license.assignedEmail})`} />
+        <Row label="Customer" value={license.assignedTo} />
+        <Row label="Discord ID" value={<span className="text-[#38bdf8] font-mono font-semibold">🎮 {license.assignedEmail || 'None'}</span>} />
         <Row label="Created" value={fmtDate(license.createdAt)} />
         <Row label="Expires" value={fmtDate(license.expiresAt)} />
         <Row
@@ -524,7 +522,7 @@ export default function LicensesPage({ data, actions }: Props) {
         <table className="w-full border-collapse">
           <thead>
             <tr style={{ background: '#0b1220' }}>
-              {['License Key', 'Status', 'Plan', 'Assigned User', 'Hardware ID (HWID)', 'Expires', 'Actions'].map((col) => (
+              {['License Key', 'Status', 'Customer & Discord ID', 'Hardware ID (HWID)', 'Expires', 'Actions'].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-[10px] font-semibold tracking-wider uppercase"
@@ -538,7 +536,7 @@ export default function LicensesPage({ data, actions }: Props) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-xs text-[#64748b]">
+                <td colSpan={6} className="px-4 py-8 text-center text-xs text-[#64748b]">
                   No licenses found in this category.
                 </td>
               </tr>
@@ -554,10 +552,11 @@ export default function LicensesPage({ data, actions }: Props) {
                     <code className="text-xs font-mono font-bold text-[#60a5fa]">{l.key}</code>
                   </td>
                   <td className="px-4 py-3"><StatusBadge status={l.status} /></td>
-                  <td className="px-4 py-3"><PlanBadge plan={l.plan} /></td>
                   <td className="px-4 py-3">
                     <p className="text-xs font-medium text-[#e2e8f0]">{l.assignedTo}</p>
-                    <p className="text-[11px] text-[#475569]">{l.assignedEmail}</p>
+                    <p className="text-[11px] font-mono text-[#38bdf8] flex items-center gap-1">
+                      <span>🎮</span> {l.assignedEmail || 'None'}
+                    </p>
                   </td>
                   <td className="px-4 py-3">
                     {l.deviceId ? (
