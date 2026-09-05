@@ -185,7 +185,7 @@ function GenerateModal({
       action: 'License Created',
       targetType: 'license',
       target: name.trim(),
-      details: `Created (${duration}) license on Keygen.sh for ${name.trim()} (Discord: ${discordId.trim()})`,
+      details: `Created (${duration}) license in Yoga Portal for ${name.trim()} (Discord: ${discordId.trim()})`,
       ipAddress: '198.51.100.1',
       severity: 'info',
     });

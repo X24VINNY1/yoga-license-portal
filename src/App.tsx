@@ -464,7 +464,7 @@ export default function App() {
     setLicenses((prev) => prev.map((l) => (l.id === id ? { ...l, ...changes } : l)));
   }, []);
 
-  // Create license directly on Keygen.sh
+  // Create license directly in Yoga Portal
   const addLicense = useCallback(async (licPayload: any) => {
     try {
       const res = await fetch('/api/keygen', {
@@ -474,7 +474,7 @@ export default function App() {
       });
       const json = await res.json();
       if (json.success) {
-        showToast('✓ License created on Keygen.sh cloud!', 'success');
+        showToast('✓ License created on Yoga License Cloud!', 'success');
         // Refresh immediately
         const refRes = await fetch('/api/keygen');
         const refJson = await refRes.json();
@@ -482,14 +482,14 @@ export default function App() {
           setLicenses(refJson.licenses);
         }
       } else {
-        showToast(`Failed to create license on Keygen: ${JSON.stringify(json.error)}`, 'error');
+        showToast(`Failed to create license in Yoga Portal: ${JSON.stringify(json.error)}`, 'error');
       }
     } catch (e: any) {
       showToast(`Error: ${e.message}`, 'error');
     }
   }, [showToast]);
 
-  // Owner & Admin can delete license keys on Keygen.sh
+  // Owner & Admin can delete license keys in Yoga Portal
   const deleteLicense = useCallback(async (id: string) => {
     if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'admin')) {
       showToast('Permission denied: Only Owner & Admin can delete license keys.', 'error');
@@ -502,13 +502,13 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', payload: { licenseId: id } }),
       });
-      showToast('✓ License deleted from Keygen.sh cloud', 'success');
+      showToast('✓ License deleted from Yoga License Cloud', 'success');
     } catch (e: any) {
       showToast(`Delete failed: ${e.message}`, 'error');
     }
   }, [currentUser, showToast]);
 
-  // Unlink machine HWID on Keygen.sh
+  // Unlink machine HWID in Yoga Portal
   const resetDevice = useCallback(async (machineId: string) => {
     try {
       await fetch('/api/keygen', {
@@ -516,7 +516,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reset_machine', payload: { machineId } }),
       });
-      showToast('✓ Machine HWID unlinked on Keygen.sh', 'success');
+      showToast('✓ Machine HWID unlinked in Yoga Portal', 'success');
       const refRes = await fetch('/api/keygen');
       const refJson = await refRes.json();
       if (refJson.success && Array.isArray(refJson.licenses)) {
