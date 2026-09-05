@@ -115,6 +115,32 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, message: 'License status updated.' });
       }
 
+      if (action === 'bind_hwid') {
+        const { key, hwid, deviceName, devicePlatform } = payload || {};
+        const cleanKey = (key || '').trim().toUpperCase();
+        const cleanHwid = (hwid || '').trim().toUpperCase();
+        const lic = licenses.find(l => l.key.toUpperCase() === cleanKey);
+        if (!lic) {
+          return res.status(404).json({ success: false, message: 'License key not found.' });
+        }
+        if (lic.deviceId && lic.deviceId.toUpperCase() !== cleanHwid) {
+          return res.status(403).json({
+            success: false,
+            message: 'License is locked to a different computer (HWID mismatch). Reset HWID in portal.'
+          });
+        }
+        lic.deviceId = cleanHwid;
+        lic.deviceName = deviceName || 'Windows PC';
+        lic.devicePlatform = devicePlatform || 'Windows';
+        lic.deviceAssociatedAt = new Date().toISOString();
+        saveLicenses(licenses);
+        return res.status(200).json({
+          success: true,
+          message: 'Hardware ID locked to this machine.',
+          deviceId: cleanHwid
+        });
+      }
+
       return res.status(400).json({ success: false, message: 'Unknown action: ' + action });
     }
 
