@@ -1,4 +1,4 @@
-import keygenHandler from './keygen.js';
+import licensesHandler from './licenses.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       action: 'verify',
       payload: rawBody
     };
-    return await keygenHandler(req, res);
+    return await licensesHandler(req, res);
   } catch (err) {
     return res.status(500).json({ valid: false, message: 'Server error: ' + err.message });
   }

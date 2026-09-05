@@ -397,7 +397,7 @@ export default function App() {
   // Initial load and live polling with Yoga Vision Portal backend
   useEffect(() => {
     const syncRemoteState = () => {
-      fetch('/api/keygen')
+      fetch('/api/licenses')
         .then((res) => res.json())
         .then((json) => {
           if (json?.success && Array.isArray(json.licenses)) {
@@ -475,7 +475,7 @@ export default function App() {
   // Create license directly in Yoga Portal
   const addLicense = useCallback(async (licPayload: any) => {
     try {
-      const res = await fetch('/api/keygen', {
+      const res = await fetch('/api/licenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create', payload: licPayload }),
@@ -500,7 +500,7 @@ export default function App() {
     }
     setLicenses((prev) => prev.filter((l) => l.id !== id));
     try {
-      await fetch('/api/keygen', {
+      await fetch('/api/licenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', payload: { licenseId: id } }),
@@ -514,13 +514,13 @@ export default function App() {
   // Unlink machine HWID in Yoga Portal
   const resetDevice = useCallback(async (machineId: string) => {
     try {
-      await fetch('/api/keygen', {
+      await fetch('/api/licenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reset_machine', payload: { machineId } }),
       });
       showToast('✓ Machine HWID unlinked in Yoga Portal', 'success');
-      const refRes = await fetch('/api/keygen');
+      const refRes = await fetch('/api/licenses');
       const refJson = await refRes.json();
       if (refJson.success && Array.isArray(refJson.licenses)) {
         setLicenses(refJson.licenses);
