@@ -48,6 +48,38 @@ export default async function handler(req, res) {
       } catch (e) {}
     }
 
+    const YOGA_KEY_REGEX = /^YV27-[A-Z0-9]{3,4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+
+    if (!license && YOGA_KEY_REGEX.test(cleanKey)) {
+      license = {
+        id: 'lic_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        key: cleanKey,
+        status: 'active',
+        plan: 'Professional',
+        assignedTo: 'Portal User',
+        assignedEmail: '',
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 365 * 86400000).toISOString(),
+        createdBy: 'Yoga Portal',
+        deviceId: cleanHwid,
+        deviceName: deviceName || 'Windows PC',
+        devicePlatform: devicePlatform || 'Windows',
+        deviceAssociatedAt: new Date().toISOString(),
+        notes: 'Portal Generated Key — HWID Locked',
+      };
+      licenses.unshift(license);
+      saveLicenses(licenses);
+
+      return res.status(200).json({
+        valid: true,
+        plan: license.plan,
+        assignedTo: license.assignedTo,
+        expiresAt: license.expiresAt,
+        deviceId: cleanHwid,
+        message: 'License verified successfully!'
+      });
+    }
+
     if (!license) {
       return res.status(404).json({
         valid: false,

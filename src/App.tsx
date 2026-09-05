@@ -401,7 +401,15 @@ export default function App() {
         .then((res) => res.json())
         .then((json) => {
           if (json?.success && Array.isArray(json.licenses)) {
-            setLicenses(json.licenses);
+            setLicenses((prev) => {
+              const map = new Map();
+              for (const l of prev) map.set(l.key.toUpperCase(), l);
+              for (const l of json.licenses) {
+                const ex = map.get(l.key.toUpperCase());
+                map.set(l.key.toUpperCase(), { ...ex, ...l });
+              }
+              return Array.from(map.values());
+            });
           }
         })
         .catch(() => {});
@@ -473,14 +481,9 @@ export default function App() {
         body: JSON.stringify({ action: 'create', payload: licPayload }),
       });
       const json = await res.json();
-      if (json.success) {
-        showToast('✓ License created on Yoga License Cloud!', 'success');
-        // Refresh immediately
-        const refRes = await fetch('/api/keygen');
-        const refJson = await refRes.json();
-        if (refJson.success && Array.isArray(refJson.licenses)) {
-          setLicenses(refJson.licenses);
-        }
+      if (json.success && json.license) {
+        showToast(`✓ License created: ${json.license.key}`, 'success');
+        setLicenses((prev) => [json.license, ...prev.filter((l) => l.key !== json.license.key)]);
       } else {
         showToast(`Failed to create license in Yoga Portal: ${JSON.stringify(json.error)}`, 'error');
       }
