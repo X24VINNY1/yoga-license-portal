@@ -1,8 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { db } from './db';
+import { db, getLicenses, saveLicenses } from './db.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS Headers
+export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -15,34 +13,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
-  // GET: Return current database state (licenses, staff, auditLog)
   if (req.method === 'GET') {
     return res.status(200).json({
       success: true,
-      data: db,
+      data: {
+        licenses: getLicenses(),
+        staff: db.staff,
+        auditLog: db.auditLog
+      },
     });
   }
 
-  // POST: Sync / Update state from web admin dashboard
   if (req.method === 'POST') {
-    const { licenses, staff, auditLog } = req.body || {};
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    const { licenses, staff, auditLog } = body;
 
     if (Array.isArray(licenses)) {
-      // Merge or update
-      for (const updated of licenses) {
-        const idx = db.licenses.findIndex((l) => l.id === updated.id || l.key === updated.key);
-        if (idx >= 0) {
-          db.licenses[idx] = { ...db.licenses[idx], ...updated };
-        } else {
-          db.licenses.unshift(updated);
-        }
-      }
+      saveLicenses(licenses);
     }
-
     if (Array.isArray(staff)) {
       db.staff = staff;
     }
-
     if (Array.isArray(auditLog)) {
       db.auditLog = auditLog;
     }
@@ -50,7 +41,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       success: true,
       message: 'State synchronized successfully.',
-      data: db,
+      data: {
+        licenses: getLicenses(),
+        staff: db.staff,
+        auditLog: db.auditLog
+      },
     });
   }
 

@@ -72,3 +72,20 @@ export function saveLicenses(licenses) {
     fs.writeFileSync(TMP_FILE, JSON.stringify(licenses, null, 2), 'utf-8');
   } catch (e) {}
 }
+
+export const db = {
+  get licenses() { return getLicenses(); },
+  staff: [
+    {
+      id: 's1',
+      name: 'Owner',
+      email: 'owner@yogavision.app',
+      role: 'owner',
+      status: 'active',
+      createdAt: '2025-01-01T00:00:00Z',
+      lastLogin: new Date().toISOString(),
+      password: 'owner123',
+    },
+  ],
+  auditLog: [],
+};
