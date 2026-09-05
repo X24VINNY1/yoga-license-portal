@@ -141,6 +141,46 @@ export default async function handler(req, res) {
         });
       }
 
+      if (action === 'verify') {
+        const { key, hwid, deviceName, devicePlatform } = payload || {};
+        const cleanKey = (key || '').trim().toUpperCase();
+        const cleanHwid = (hwid || '').trim().toUpperCase();
+        const lic = licenses.find(l => l.key.toUpperCase() === cleanKey);
+        if (!lic) {
+          return res.status(404).json({ valid: false, message: 'Invalid license key. Check your key or get access at https://discord.gg/yoga' });
+        }
+        if (lic.status === 'revoked') {
+          return res.status(403).json({ valid: false, message: 'This license has been revoked.' });
+        }
+        if (lic.status === 'suspended') {
+          return res.status(403).json({ valid: false, message: 'This license has been suspended.' });
+        }
+        if (lic.expiresAt && new Date(lic.expiresAt) < new Date()) {
+          return res.status(403).json({ valid: false, message: 'This license has expired.' });
+        }
+        if (lic.deviceId && lic.deviceId.toUpperCase() !== cleanHwid) {
+          return res.status(403).json({
+            valid: false,
+            message: 'License is locked to a different computer. Reset HWID in the portal or contact staff.'
+          });
+        }
+        if (!lic.deviceId) {
+          lic.deviceId = cleanHwid;
+          lic.deviceName = deviceName || 'Windows PC';
+          lic.devicePlatform = devicePlatform || 'Windows';
+          lic.deviceAssociatedAt = new Date().toISOString();
+          saveLicenses(licenses);
+        }
+        return res.status(200).json({
+          valid: true,
+          plan: lic.plan || 'Professional',
+          assignedTo: lic.assignedTo || 'Valued User',
+          expiresAt: lic.expiresAt || '',
+          deviceId: cleanHwid,
+          message: 'License verified successfully!'
+        });
+      }
+
       return res.status(400).json({ success: false, message: 'Unknown action: ' + action });
     }
 

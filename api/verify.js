@@ -29,7 +29,24 @@ export default async function handler(req, res) {
     const cleanHwid = hwid.trim().toUpperCase();
 
     const licenses = getLicenses();
-    const license = licenses.find(l => l.key.toUpperCase() === cleanKey);
+    let license = licenses.find(l => l.key.toUpperCase() === cleanKey);
+
+    if (!license) {
+      try {
+        const proto = req.headers['x-forwarded-proto'] || 'https';
+        const host = req.headers['host'] || 'yoga-license-portal.vercel.app';
+        const keygenUrl = `${proto}://${host}/api/keygen`;
+        const keygenRes = await fetch(keygenUrl);
+        const keygenData = await keygenRes.json();
+        if (keygenData?.success && Array.isArray(keygenData.licenses)) {
+          license = keygenData.licenses.find(l => l.key.toUpperCase() === cleanKey);
+          if (license) {
+            licenses.unshift(license);
+            saveLicenses(licenses);
+          }
+        }
+      } catch (e) {}
+    }
 
     if (!license) {
       return res.status(404).json({
