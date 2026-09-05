@@ -394,7 +394,7 @@ export default function App() {
   );
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // Initial load and live polling with Keygen.sh backend
+  // Initial load and live polling with Yoga Vision Portal backend
   useEffect(() => {
     const syncRemoteState = () => {
       fetch('/api/keygen')
