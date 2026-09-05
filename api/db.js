@@ -60,7 +60,7 @@ export function getLicenses() {
   try {
     if (fs.existsSync(TMP_FILE)) {
       const data = JSON.parse(fs.readFileSync(TMP_FILE, 'utf-8'));
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data)) return data;
     }
   } catch (e) {}
   return memLicenses;

@@ -146,37 +146,8 @@ export default async function handler(req, res) {
         const cleanKey = (key || '').trim().toUpperCase();
         const cleanHwid = (hwid || '').trim().toUpperCase();
         let lic = licenses.find(l => l.key.toUpperCase() === cleanKey);
-        const YOGA_KEY_REGEX = /^YV27-[A-Z0-9]{3,4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-        if (!lic && YOGA_KEY_REGEX.test(cleanKey)) {
-          lic = {
-            id: 'lic_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-            key: cleanKey,
-            status: 'active',
-            plan: 'Professional',
-            assignedTo: 'Portal User',
-            assignedEmail: '',
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 365 * 86400000).toISOString(),
-            createdBy: 'Yoga Portal',
-            deviceId: cleanHwid,
-            deviceName: deviceName || 'Windows PC',
-            devicePlatform: devicePlatform || 'Windows',
-            deviceAssociatedAt: new Date().toISOString(),
-            notes: 'Portal Generated Key — HWID Locked',
-          };
-          licenses.unshift(lic);
-          saveLicenses(licenses);
-          return res.status(200).json({
-            valid: true,
-            plan: lic.plan,
-            assignedTo: lic.assignedTo,
-            expiresAt: lic.expiresAt,
-            deviceId: cleanHwid,
-            message: 'License verified successfully!'
-          });
-        }
         if (!lic) {
-          return res.status(404).json({ valid: false, message: 'Invalid license key. Check your key or get access at https://discord.gg/yoga' });
+          return res.status(404).json({ valid: false, message: 'Invalid or deleted license key. Check your key or get access at https://discord.gg/yoga' });
         }
         if (lic.status === 'revoked') {
           return res.status(403).json({ valid: false, message: 'This license has been revoked.' });
